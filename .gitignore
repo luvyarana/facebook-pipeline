@@ -18,3 +18,7 @@ venv.bak/
 
 # VSCode
 .vscode/
+
+# Data storage
+data/
+
