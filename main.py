@@ -1,5 +1,6 @@
 import sys
 import logging
+from datetime import datetime
 from config import load_config
 from facebook_client import fetch_all_page_posts, parse_post_metrics, GRAPH_API_VERSION
 from storage import save_raw_response
@@ -23,11 +24,15 @@ def main():
     page_id = config["FACEBOOK_PAGE_ID"]
     access_token = config["FACEBOOK_PAGE_ACCESS_TOKEN"]
 
+    # Generate a single timestamp for this execution run
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     print("========================================")
     print("Facebook Page Data Pipeline")
     print(f"Graph API Version: {GRAPH_API_VERSION}")
     print("========================================")
     print(f"Page ID: {page_id}")
+    print(f"Run ID: {run_timestamp}")
     print("\nFetching posts with pagination and saving raw responses...\n")
 
     total_pages = 0
@@ -38,7 +43,9 @@ def main():
         for response_json in fetch_all_page_posts(
             page_id=page_id,
             access_token=access_token,
-            raw_storage_callback=save_raw_response
+            raw_storage_callback=lambda p_id, p_num, d: save_raw_response(
+                p_id, p_num, d, run_timestamp=run_timestamp
+            )
         ):
             total_pages += 1
             posts = response_json.get("data", [])

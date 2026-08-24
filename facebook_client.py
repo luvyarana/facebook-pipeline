@@ -71,11 +71,16 @@ def fetch_all_page_posts(page_id: str, access_token: str, raw_storage_callback=N
                     err_subcode = err_detail.get("error_subcode")
                     msg = err_detail.get("message", "")
                     
-                    # Detect authentication/token errors specifically (e.g. OAuthException, code 190)
-                    if err_detail.get("type") == "OAuthException" or err_code in (100, 190):
+                    # Detect authentication/token errors specifically (e.g. code 190)
+                    if err_code == 190 or (err_detail.get("type") == "OAuthException" and err_code != 100):
                         error_msg = (
                             f"Authentication Failure (Code {err_code}, Subcode {err_subcode}): "
                             f"{msg}. Please check your FACEBOOK_PAGE_ACCESS_TOKEN in .env."
+                        )
+                    elif err_code == 100:
+                        error_msg = (
+                            f"Invalid Parameter / Request Error (Code {err_code}, Subcode {err_subcode}): "
+                            f"{msg}."
                         )
                     else:
                         error_msg = f"Facebook Graph API Error (Code {err_code}): {msg}"
@@ -101,7 +106,9 @@ def fetch_all_page_posts(page_id: str, access_token: str, raw_storage_callback=N
                 saved_path = raw_storage_callback(page_id, page_number, data)
                 logger.info(f"Saved raw response page {page_number} to {saved_path}")
             except Exception as storage_err:
-                logger.warning(f"Failed to save raw response for page {page_number}: {storage_err}")
+                err_msg = f"Failed to save raw response for page {page_number}: {storage_err}"
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from storage_err
 
         yield data
 
