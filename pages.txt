@@ -1,0 +1,2 @@
+# Add Facebook Page IDs below (one per line)
+# Lines starting with '#' and empty lines will be ignored.

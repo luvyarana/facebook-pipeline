@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 from datetime import datetime
 
 def save_raw_response(page_id: str, page_number: int, raw_data: dict, run_timestamp: str = None) -> str:
@@ -33,3 +34,88 @@ def save_raw_response(page_id: str, page_number: int, raw_data: dict, run_timest
         json.dump(raw_data, f, indent=2, ensure_ascii=False)
 
     return filepath
+
+
+def init_sqlite_db(db_path: str = "data/facebook_pipeline.db"):
+    """
+    Initializes the SQLite database and creates the 'posts' table if it does not exist.
+    Safe to call multiple times.
+    """
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS posts (
+                post_id TEXT PRIMARY KEY,
+                page_id TEXT NOT NULL,
+                message TEXT,
+                created_time TEXT,
+                media_type TEXT,
+                media_url TEXT,
+                likes_count INTEGER DEFAULT 0,
+                comments_count INTEGER DEFAULT 0,
+                shares_count INTEGER DEFAULT 0,
+                reactions_like INTEGER DEFAULT 0,
+                reactions_love INTEGER DEFAULT 0,
+                reactions_haha INTEGER DEFAULT 0,
+                reactions_wow INTEGER DEFAULT 0,
+                reactions_sad INTEGER DEFAULT 0,
+                reactions_angry INTEGER DEFAULT 0,
+                fetched_at TEXT
+            );
+        """)
+        conn.commit()
+
+
+def save_processed_posts(posts: list, db_path: str = "data/facebook_pipeline.db") -> int:
+    """
+    Upserts normalized post dictionaries into the SQLite database.
+    Uses 'ON CONFLICT(post_id) DO UPDATE' to prevent duplicate rows and update metrics.
+
+    Returns:
+        int: Number of rows inserted/updated.
+    """
+    if not posts:
+        return 0
+
+    init_sqlite_db(db_path)
+
+    upsert_sql = """
+        INSERT INTO posts (
+            post_id, page_id, message, created_time, media_type, media_url,
+            likes_count, comments_count, shares_count,
+            reactions_like, reactions_love, reactions_haha, reactions_wow, reactions_sad, reactions_angry,
+            fetched_at
+        ) VALUES (
+            :post_id, :page_id, :message, :created_time, :media_type, :media_url,
+            :likes_count, :comments_count, :shares_count,
+            :reactions_like, :reactions_love, :reactions_haha, :reactions_wow, :reactions_sad, :reactions_angry,
+            :fetched_at
+        )
+        ON CONFLICT(post_id) DO UPDATE SET
+            page_id = excluded.page_id,
+            message = excluded.message,
+            created_time = excluded.created_time,
+            media_type = excluded.media_type,
+            media_url = excluded.media_url,
+            likes_count = excluded.likes_count,
+            comments_count = excluded.comments_count,
+            shares_count = excluded.shares_count,
+            reactions_like = excluded.reactions_like,
+            reactions_love = excluded.reactions_love,
+            reactions_haha = excluded.reactions_haha,
+            reactions_wow = excluded.reactions_wow,
+            reactions_sad = excluded.reactions_sad,
+            reactions_angry = excluded.reactions_angry,
+            fetched_at = excluded.fetched_at;
+    """
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.executemany(upsert_sql, posts)
+        conn.commit()
+        return cursor.rowcount
+
