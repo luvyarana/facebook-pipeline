@@ -177,7 +177,7 @@ def fetch_all_page_posts(page_id: str, access_token: str, raw_storage_callback=N
             except Exception as storage_err:
                 err_msg = f"Failed to save raw response for page {page_number}: {storage_err}"
                 logger.error(err_msg)
-                raise FacebookAPIError(err_msg) from storage_err
+                raise RuntimeError(err_msg) from storage_err
 
         yield data
 

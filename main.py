@@ -73,6 +73,11 @@ def run_pipeline_batch(config: dict) -> bool:
 
             total_posts_batch += page_posts_count
 
+        except RuntimeError as e:
+            # Fatal storage or critical runtime error stops the entire pipeline run immediately
+            logger.error(f"CRITICAL STORAGE FAILURE: {e}")
+            return False
+
         except FacebookPermissionError as e:
             # Step 6 Rule: Permission failure skips only the affected Page
             logger.warning(
